@@ -3,7 +3,7 @@ import { neon } from "@neondatabase/serverless"
 export * from "./types"
 
 export const sql = neon(process.env.DATABASE_URL!)
-
+/* lol ?*/
 export type User = {
   id: string
   name: string | null
