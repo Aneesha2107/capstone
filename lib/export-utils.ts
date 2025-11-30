@@ -1,159 +1,198 @@
 import { formatCurrency } from "./currency"
 
-type ChartData = Record<string, string | number>[]
-
-export function downloadCSV(data: ChartData, filename: string, currency: string) {
-  if (data.length === 0) return
-
-  const headers = Object.keys(data[0])
-  const csvRows = [headers.join(",")]
-
-  for (const row of data) {
-    const values = headers.map((header) => {
-      const val = row[header]
-      // Escape commas and quotes in string values
-      if (typeof val === "string") {
-        return `"${val.replace(/"/g, '""')}"`
-      }
-      return val
-    })
-    csvRows.push(values.join(","))
-  }
-
-  const csvContent = csvRows.join("\n")
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.setAttribute("href", url)
-  link.setAttribute("download", `${filename}-${new Date().toISOString().split("T")[0]}.csv`)
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+type SimplifiedReportData = {
+  totalBudget: number
+  totalSpent: number
+  remaining: number
+  categorySpending: { name: string; spent: number; budget: number }[]
 }
 
-export function downloadChartAsImage(chartRef: HTMLDivElement | null, filename: string) {
-  if (!chartRef) return
+export function exportSimplifiedPDF(
+  stats: SimplifiedReportData,
+  month: string,
+  currency: string
+) {
+  // Create a clean HTML structure for the PDF
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Monthly Finance Report - ${month}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+          padding: 40px;
+          max-width: 800px;
+          margin: 0 auto;
+          color: #1a1a1a;
+          line-height: 1.6;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 40px;
+          padding-bottom: 20px;
+          border-bottom: 3px solid #0d9488;
+        }
+        .header h1 {
+          font-size: 28px;
+          color: #0d9488;
+          margin-bottom: 8px;
+        }
+        .title {
+          font-size: 24px;
+          font-weight: bold;
+          margin-top: 20px;
+          padding-left: 5px;
+        
+        }
+        .header .date {
+          font-size: 16px;
+          color: #666;
+        }
+        .summary {
+          background: #f8fafc;
+          padding: 24px;
+          border-radius: 8px;
+          margin-bottom: 32px;
+        }
+        .summary-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 12px 0;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .summary-row:last-child {
+          border-bottom: none;
+          font-weight: bold;
+          font-size: 18px;
+        }
+        .summary-label {
+          color: #475569;
+        }
+        .summary-value {
+          font-weight: 600;
+        }
+        .summary-value.positive {
+          color: #16a34a;
+        }
+        .summary-value.negative {
+          color: #dc2626;
+        }
+        .section-title {
+          font-size: 20px;
+          font-weight: bold;
+          margin: 32px 0 16px;
+          color: #1e293b;
+        }
+        .category-list {
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .category-item {
+          display: flex;
+          justify-content: space-between;
+          padding: 16px 20px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .category-item:last-child {
+          border-bottom: none;
+        }
+        .category-name {
+          font-weight: 500;
+          color: #334155;
+        }
+        .category-amounts {
+          text-align: right;
+        }
+        .spent {
+          font-weight: 600;
+          color: #0f172a;
+        }
+        .budget {
+          font-size: 14px;
+          font-weight: 500;
+          color: #64748b;
+        }
+        .footer {
+          margin-top: 48px;
+          padding-top: 20px;
+          border-top: 1px solid #e2e8f0;
+          text-align: center;
+          color: #94a3b8;
+          font-size: 12px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Monthly Finance Report</h1>
+        <div class="date">${formatMonthName(month)}</div>
+      </div>
 
-  // Use html2canvas approach via SVG
-  const svgElement = chartRef.querySelector("svg")
-  if (!svgElement) return
+      <div class="summary">
+        <div class="summary-row">
+          <span class="summary-label">Total Budget</span>
+          <span class="summary-value">${formatCurrency(stats.totalBudget, currency)}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Total Spent</span>
+          <span class="summary-value">${formatCurrency(stats.totalSpent, currency)}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Remaining</span>
+          <span class="summary-value ${stats.remaining >= 0 ? 'positive' : 'negative'}">
+            ${formatCurrency(stats.remaining, currency)}
+          </span>
+        </div>
+      </div>
 
-  const svgData = new XMLSerializer().serializeToString(svgElement)
-  const canvas = document.createElement("canvas")
-  const ctx = canvas.getContext("2d")
-  const img = new Image()
+      <h2 class="section-title">Category Breakdown</h2>
+      <div class="category-list">
+        ${stats.categorySpending
+          .filter(cat => cat.spent > 0)
+          .sort((a, b) => b.spent - a.spent)
+          .map(
+            (cat) => `
+          <div class="category-item">
+            <span class="category-name">${cat.name}</span>
+            <div class="category-amounts">
+              <div class="spent">${formatCurrency(cat.spent, currency)}</div>
+              ${cat.budget > 0 ? `<div class="budget">Budget: ${formatCurrency(cat.budget, currency)}</div>` : ''}
+            </div>
+          </div>
+        `
+          )
+          .join("")}
+      </div>
 
-  // Set canvas size
-  const { width, height } = svgElement.getBoundingClientRect()
-  canvas.width = width * 2
-  canvas.height = height * 2
+      <div class="footer">
+        Generated on ${new Date().toLocaleDateString()}
+      </div>
+    </body>
+    </html>
+  `
 
-  img.onload = () => {
-    if (ctx) {
-      ctx.fillStyle = "#ffffff"
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.scale(2, 2)
-      ctx.drawImage(img, 0, 0)
-
-      const pngUrl = canvas.toDataURL("image/png")
-      const link = document.createElement("a")
-      link.download = `${filename}-${new Date().toISOString().split("T")[0]}.png`
-      link.href = pngUrl
-      link.click()
+  // Create a new window and trigger print (which can save as PDF)
+  const printWindow = window.open("", "_blank")
+  if (printWindow) {
+    printWindow.document.write(html)
+    printWindow.document.close()
+    
+    // Wait for content to load then trigger print dialog
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print()
+      }, 250)
     }
   }
-
-  img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)))
 }
 
-export function exportStatsToCSV(
-  stats: {
-    totalBudget: number
-    totalSpent: number
-    remaining: number
-    recurring: number
-    nonRecurring: number
-  },
-  month: string,
-  currency: string,
-) {
-  const data = [
-    {
-      Month: month,
-      "Total Budget": formatCurrency(stats.totalBudget, currency),
-      "Total Spent": formatCurrency(stats.totalSpent, currency),
-      Remaining: formatCurrency(stats.remaining, currency),
-      "Recurring Expenses": formatCurrency(stats.recurring, currency),
-      "One-time Expenses": formatCurrency(stats.nonRecurring, currency),
-    },
-  ]
-
-  downloadCSV(data, `financial-summary-${month}`, currency)
-}
-
-export function exportAllData(
-  stats: {
-    totalBudget: number
-    totalSpent: number
-    remaining: number
-    recurring: number
-    nonRecurring: number
-    categorySpending: { name: string; budget: number; spent: number }[]
-  },
-  history: { month: string; spent: number; budget: number }[],
-  month: string,
-  currency: string,
-) {
-  // Create comprehensive report
-  const lines: string[] = []
-
-  // Header
-  lines.push("PERSONAL FINANCE REPORT")
-  lines.push(`Generated: ${new Date().toLocaleDateString()}`)
-  lines.push(`Currency: ${currency}`)
-  lines.push(`Month: ${month}`)
-  lines.push("")
-
-  // Summary Section
-  lines.push("=== MONTHLY SUMMARY ===")
-  lines.push(`Total Budget,${formatCurrency(stats.totalBudget, currency)}`)
-  lines.push(`Total Spent,${formatCurrency(stats.totalSpent, currency)}`)
-  lines.push(`Remaining,${formatCurrency(stats.remaining, currency)}`)
-  lines.push(`Recurring Expenses,${formatCurrency(stats.recurring, currency)}`)
-  lines.push(`One-time Expenses,${formatCurrency(stats.nonRecurring, currency)}`)
-  lines.push("")
-
-  // Category Breakdown
-  lines.push("=== CATEGORY BREAKDOWN ===")
-  lines.push("Category,Budget,Spent,Remaining,% Used")
-  for (const cat of stats.categorySpending) {
-    const remaining = cat.budget - cat.spent
-    const percentUsed = cat.budget > 0 ? ((cat.spent / cat.budget) * 100).toFixed(1) : "0"
-    lines.push(
-      `${cat.name},${formatCurrency(cat.budget, currency)},${formatCurrency(cat.spent, currency)},${formatCurrency(remaining, currency)},${percentUsed}%`,
-    )
-  }
-  lines.push("")
-
-  // Monthly History
-  lines.push("=== MONTHLY HISTORY ===")
-  lines.push("Month,Budget,Spent,Difference")
-  for (const h of history) {
-    const diff = h.budget - h.spent
-    lines.push(
-      `${h.month},${formatCurrency(h.budget, currency)},${formatCurrency(h.spent, currency)},${formatCurrency(diff, currency)}`,
-    )
-  }
-
-  const csvContent = lines.join("\n")
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.setAttribute("href", url)
-  link.setAttribute("download", `finance-report-${month}-${new Date().toISOString().split("T")[0]}.csv`)
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+function formatMonthName(month: string): string {
+  const [year, monthNum] = month.split("-")
+  const date = new Date(parseInt(year), parseInt(monthNum) - 1)
+  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" })
 }

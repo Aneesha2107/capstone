@@ -20,7 +20,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatCurrency, convertFromUSD } from "@/lib/currency"
-import { exportAllData } from "@/lib/export-utils"
+import { exportSimplifiedPDF } from "@/lib/export-utils"
 
 type InsightsData = {
   totalBudget: number
@@ -121,7 +121,7 @@ export function DashboardContent({
 
   const handleExportAll = () => {
     if (convertedInsights) {
-      exportAllData(convertedInsights, convertedHistory, currentMonth, currency)
+      exportSimplifiedPDF(convertedInsights, currentMonth,currency)
     }
   }
 
