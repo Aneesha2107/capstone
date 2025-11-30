@@ -1,6 +1,7 @@
 "use client"
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Tooltip } from "recharts"
+import { formatCurrency } from "@/lib/currency"
 
 type MonthlyData = {
   month: string
@@ -17,7 +18,7 @@ function formatMonthShort(month: string) {
   return date.toLocaleDateString("en-US", { month: "short" })
 }
 
-export function MonthlyTrendChart({ data }: { data: MonthlyData[] }) {
+export function MonthlyTrendChart({ data, currency = "USD" }: { data: MonthlyData[]; currency?: string }) {
   if (data.length === 0) {
     return (
       <div className="h-[250px] flex items-center justify-center text-muted-foreground">
@@ -41,9 +42,9 @@ export function MonthlyTrendChart({ data }: { data: MonthlyData[] }) {
         <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
           <XAxis dataKey="month" tick={{ fill: "#6b7280", fontSize: 12 }} />
-          <YAxis tick={{ fill: "#6b7280", fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
+          <YAxis tick={{ fill: "#6b7280", fontSize: 12 }} tickFormatter={(value) => formatCurrency(value, currency)} />
           <Tooltip
-            formatter={(value: number) => [`$${value.toFixed(0)}`, undefined]}
+            formatter={(value: number) => [formatCurrency(value, currency), undefined]}
             contentStyle={{
               backgroundColor: "#fff",
               border: "1px solid #e5e7eb",

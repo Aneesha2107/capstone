@@ -1,6 +1,7 @@
 "use client"
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, Tooltip } from "recharts"
+import { formatCurrency } from "@/lib/currency"
 
 type CategoryData = {
   id: number
@@ -12,7 +13,7 @@ type CategoryData = {
 const BUDGET_COLOR = "#0d9488"
 const SPENT_COLOR = "#f97316"
 
-export function BudgetVsSpendChart({ data }: { data: CategoryData[] }) {
+export function BudgetVsSpendChart({ data, currency = "USD" }: { data: CategoryData[]; currency?: string }) {
   if (data.length === 0) {
     return (
       <div className="h-[300px] flex items-center justify-center text-muted-foreground">
@@ -36,9 +37,9 @@ export function BudgetVsSpendChart({ data }: { data: CategoryData[] }) {
         <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
           <XAxis dataKey="name" tick={{ fill: "#6b7280", fontSize: 12 }} angle={-45} textAnchor="end" height={60} />
-          <YAxis tick={{ fill: "#6b7280", fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
+          <YAxis tick={{ fill: "#6b7280", fontSize: 12 }} tickFormatter={(value) => formatCurrency(value, currency)} />
           <Tooltip
-            formatter={(value: number) => [`$${value.toFixed(0)}`, undefined]}
+            formatter={(value: number) => [formatCurrency(value, currency), undefined]}
             contentStyle={{
               backgroundColor: "#fff",
               border: "1px solid #e5e7eb",

@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
+import { formatCurrency } from "@/lib/currency"
 
 type CategoryData = {
   id: number
@@ -10,16 +11,7 @@ type CategoryData = {
   spent: number
 }
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-export function CategoryBreakdownChart({ data }: { data: CategoryData[] }) {
+export function CategoryBreakdownChart({ data, currency = "USD" }: { data: CategoryData[]; currency?: string }) {
   if (data.length === 0) {
     return (
       <div className="h-[200px] flex items-center justify-center text-muted-foreground">
@@ -47,10 +39,10 @@ export function CategoryBreakdownChart({ data }: { data: CategoryData[] }) {
               </div>
               <div className="flex items-center gap-2">
                 <span className={cn("font-medium", isOverBudget ? "text-destructive" : "text-foreground")}>
-                  {formatCurrency(category.spent)}
+                  {formatCurrency(category.spent, currency)}
                 </span>
                 {category.budget > 0 && (
-                  <span className="text-muted-foreground">/ {formatCurrency(category.budget)}</span>
+                  <span className="text-muted-foreground">/ {formatCurrency(category.budget, currency)}</span>
                 )}
               </div>
             </div>

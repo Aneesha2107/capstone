@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { getMonthlyInsights, getMonthlyHistory } from "@/lib/data-actions"
+import { getUserSettings } from "@/lib/settings-actions"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { DashboardContent } from "@/components/dashboard-content"
 
@@ -15,7 +16,11 @@ export default async function DashboardPage({
   const params = await searchParams
   const currentMonth = params.month || new Date().toISOString().slice(0, 7)
 
-  const [insights, history] = await Promise.all([getMonthlyInsights(currentMonth), getMonthlyHistory()])
+  const [insights, history, settings] = await Promise.all([
+    getMonthlyInsights(currentMonth),
+    getMonthlyHistory(),
+    getUserSettings(),
+  ])
 
   return (
     <DashboardShell user={session}>
@@ -24,6 +29,7 @@ export default async function DashboardPage({
         history={history}
         currentMonth={currentMonth}
         userName={session.name || "User"}
+        currency={settings?.currency || "USD"}
       />
     </DashboardShell>
   )

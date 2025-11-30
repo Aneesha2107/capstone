@@ -1,6 +1,7 @@
 "use client"
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
+import { formatCurrency } from "@/lib/currency"
 
 const RECURRING_COLOR = "#0d9488"
 const ONETIME_COLOR = "#f97316"
@@ -8,9 +9,11 @@ const ONETIME_COLOR = "#f97316"
 export function RecurringPieChart({
   recurring,
   nonRecurring,
+  currency = "USD",
 }: {
   recurring: number
   nonRecurring: number
+  currency?: string
 }) {
   const total = recurring + nonRecurring
 
@@ -29,7 +32,7 @@ export function RecurringPieChart({
 
   const COLORS = [RECURRING_COLOR, ONETIME_COLOR]
 
-  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
     const RADIAN = Math.PI / 180
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5
     const x = cx + radius * Math.cos(-midAngle * RADIAN)
@@ -64,7 +67,7 @@ export function RecurringPieChart({
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number) => [`$${value.toFixed(0)}`, undefined]}
+            formatter={(value: number) => [formatCurrency(value, currency), undefined]}
             contentStyle={{
               backgroundColor: "#fff",
               border: "1px solid #e5e7eb",

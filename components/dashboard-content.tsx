@@ -8,8 +8,19 @@ import { BudgetVsSpendChart } from "@/components/budget-vs-spend-chart"
 import { MonthlyTrendChart } from "@/components/monthly-trend-chart"
 import { RecurringPieChart } from "@/components/recurring-pie-chart"
 import { CategoryBreakdownChart } from "@/components/category-breakdown-chart"
-import { TrendingUp, TrendingDown, Wallet, PiggyBank, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
+import {
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  PiggyBank,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
+import { formatCurrency, convertFromUSD } from "@/lib/currency"
+import { exportAllData } from "@/lib/export-utils"
 
 type InsightsData = {
   totalBudget: number
@@ -32,15 +43,6 @@ type HistoryData = {
   budget: number
 }[]
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
 function formatMonth(month: string) {
   const [year, monthNum] = month.split("-")
   const date = new Date(Number.parseInt(year), Number.parseInt(monthNum) - 1)
@@ -62,14 +64,37 @@ export function DashboardContent({
   history,
   currentMonth,
   userName,
+  currency = "USD",
 }: {
   insights: InsightsData
   history: HistoryData
   currentMonth: string
   userName: string
+  currency?: string
 }) {
   const router = useRouter()
   const availableMonths = getAvailableMonths()
+
+  const convertedInsights = insights
+    ? {
+        totalBudget: convertFromUSD(insights.totalBudget, currency),
+        totalSpent: convertFromUSD(insights.totalSpent, currency),
+        remaining: convertFromUSD(insights.remaining, currency),
+        recurring: convertFromUSD(insights.recurring, currency),
+        nonRecurring: convertFromUSD(insights.nonRecurring, currency),
+        categorySpending: insights.categorySpending.map((c) => ({
+          ...c,
+          budget: convertFromUSD(c.budget, currency),
+          spent: convertFromUSD(c.spent, currency),
+        })),
+      }
+    : null
+
+  const convertedHistory = history.map((h) => ({
+    ...h,
+    spent: convertFromUSD(h.spent, currency),
+    budget: convertFromUSD(h.budget, currency),
+  }))
 
   const handleMonthChange = (month: string) => {
     router.push(`/dashboard?month=${month}`)
@@ -89,8 +114,16 @@ export function DashboardContent({
     }
   }
 
-  const spentPercentage = insights ? (insights.totalSpent / (insights.totalBudget || 1)) * 100 : 0
+  const spentPercentage = convertedInsights
+    ? (convertedInsights.totalSpent / (convertedInsights.totalBudget || 1)) * 100
+    : 0
   const isOverBudget = spentPercentage > 100
+
+  const handleExportAll = () => {
+    if (convertedInsights) {
+      exportAllData(convertedInsights, convertedHistory, currentMonth, currency)
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -101,8 +134,11 @@ export function DashboardContent({
           <p className="text-muted-foreground">Here's your financial overview for {formatMonth(currentMonth)}</p>
         </div>
 
-        {/* Month Selector */}
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportAll}>
+            <Download className="h-4 w-4 mr-2" />
+            Export Report
+          </Button>
           <Button
             variant="outline"
             size="icon"
@@ -142,7 +178,9 @@ export function DashboardContent({
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{formatCurrency(insights?.totalBudget || 0)}</div>
+            <div className="text-2xl font-bold text-foreground">
+              {formatCurrency(convertedInsights?.totalBudget || 0, currency)}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">Monthly allocation</p>
           </CardContent>
         </Card>
@@ -158,7 +196,7 @@ export function DashboardContent({
           </CardHeader>
           <CardContent>
             <div className={cn("text-2xl font-bold", isOverBudget ? "text-destructive" : "text-foreground")}>
-              {formatCurrency(insights?.totalSpent || 0)}
+              {formatCurrency(convertedInsights?.totalSpent || 0, currency)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">{spentPercentage.toFixed(0)}% of budget used</p>
           </CardContent>
@@ -171,12 +209,15 @@ export function DashboardContent({
           </CardHeader>
           <CardContent>
             <div
-              className={cn("text-2xl font-bold", (insights?.remaining || 0) < 0 ? "text-destructive" : "text-success")}
+              className={cn(
+                "text-2xl font-bold",
+                (convertedInsights?.remaining || 0) < 0 ? "text-destructive" : "text-success",
+              )}
             >
-              {formatCurrency(insights?.remaining || 0)}
+              {formatCurrency(convertedInsights?.remaining || 0, currency)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {(insights?.remaining || 0) >= 0 ? "Available to spend" : "Over budget"}
+              {(convertedInsights?.remaining || 0) >= 0 ? "Available to spend" : "Over budget"}
             </p>
           </CardContent>
         </Card>
@@ -187,13 +228,15 @@ export function DashboardContent({
             <RefreshCw className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{formatCurrency(insights?.recurring || 0)}</div>
+            <div className="text-2xl font-bold text-foreground">
+              {formatCurrency(convertedInsights?.recurring || 0, currency)}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">Fixed monthly expenses</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts Grid */}
+      {/* Charts Grid - Removed individual export buttons */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Budget vs Spend by Category */}
         <Card className="lg:col-span-2">
@@ -202,7 +245,7 @@ export function DashboardContent({
             <CardDescription>Compare your budget allocation with actual spending</CardDescription>
           </CardHeader>
           <CardContent>
-            <BudgetVsSpendChart data={insights?.categorySpending || []} />
+            <BudgetVsSpendChart data={convertedInsights?.categorySpending || []} currency={currency} />
           </CardContent>
         </Card>
 
@@ -213,7 +256,7 @@ export function DashboardContent({
             <CardDescription>Your spending pattern over the last few months</CardDescription>
           </CardHeader>
           <CardContent>
-            <MonthlyTrendChart data={history} />
+            <MonthlyTrendChart data={convertedHistory} currency={currency} />
           </CardContent>
         </Card>
 
@@ -224,7 +267,11 @@ export function DashboardContent({
             <CardDescription>Breakdown of your expense types</CardDescription>
           </CardHeader>
           <CardContent>
-            <RecurringPieChart recurring={insights?.recurring || 0} nonRecurring={insights?.nonRecurring || 0} />
+            <RecurringPieChart
+              recurring={convertedInsights?.recurring || 0}
+              nonRecurring={convertedInsights?.nonRecurring || 0}
+              currency={currency}
+            />
           </CardContent>
         </Card>
 
@@ -235,7 +282,7 @@ export function DashboardContent({
             <CardDescription>Where your money is going this month</CardDescription>
           </CardHeader>
           <CardContent>
-            <CategoryBreakdownChart data={insights?.categorySpending || []} />
+            <CategoryBreakdownChart data={convertedInsights?.categorySpending || []} currency={currency} />
           </CardContent>
         </Card>
       </div>
