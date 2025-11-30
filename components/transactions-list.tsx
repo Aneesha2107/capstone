@@ -34,14 +34,7 @@ import {
   Loader2,
   Receipt,
 } from "lucide-react"
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(amount)
-}
+import { formatCurrency, convertFromUSD } from "@/lib/currency"
 
 function formatDate(dateStr: string) {
   const date = new Date(dateStr)
@@ -72,10 +65,12 @@ export function TransactionsList({
   transactions,
   categories,
   currentMonth,
+  currency = "USD"
 }: {
   transactions: Transaction[]
   categories: Category[]
   currentMonth: string
+  currency?: string
 }) {
   const router = useRouter()
   const availableMonths = getAvailableMonths()
@@ -83,6 +78,12 @@ export function TransactionsList({
   const [searchQuery, setSearchQuery] = useState("")
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Convert transactions to display currency
+  const displayTransactions = transactions.map(t => ({
+    ...t,
+    amount: convertFromUSD(Number(t.amount), currency)
+  }))
 
   const handleMonthChange = (month: string) => {
     router.push(`/transactions?month=${month}`)
@@ -110,7 +111,7 @@ export function TransactionsList({
     setIsDeleting(false)
   }
 
-  const filteredTransactions = transactions.filter((t) => {
+  const filteredTransactions = displayTransactions.filter((t) => {
     if (!searchQuery) return true
     const query = searchQuery.toLowerCase()
     return (
@@ -189,7 +190,7 @@ export function TransactionsList({
             {/* Summary */}
             <div className="text-right">
               <p className="text-sm text-muted-foreground">Total Spent</p>
-              <p className="text-lg font-bold text-foreground">{formatCurrency(totalSpent)}</p>
+              <p className="text-lg font-bold text-foreground">{formatCurrency(totalSpent, currency)}</p>
             </div>
           </div>
         </CardContent>
@@ -254,7 +255,7 @@ export function TransactionsList({
                         {transaction.notes || "-"}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(Number(transaction.amount))}
+                        {formatCurrency(Number(transaction.amount), currency)}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { getCategories } from "@/lib/data-actions"
+import { getUserSettings } from "@/lib/settings-actions"
 import { sql } from "@/lib/db"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { TransactionForm } from "@/components/transaction-form"
@@ -21,7 +22,7 @@ export default async function EditTransactionPage({
     notFound()
   }
 
-  const [categories, transactions] = await Promise.all([
+  const [categories, transactions, settings] = await Promise.all([
     getCategories(),
     sql`
       SELECT t.*, c.name as category_name 
@@ -29,6 +30,7 @@ export default async function EditTransactionPage({
       JOIN categories c ON t.category_id = c.id
       WHERE t.id = ${transactionId} AND t.user_id = ${session.id}
     `,
+    getUserSettings()
   ])
 
   if (transactions.length === 0) {
@@ -39,7 +41,11 @@ export default async function EditTransactionPage({
 
   return (
     <DashboardShell user={session}>
-      <TransactionForm categories={categories} transaction={transaction} />
+      <TransactionForm 
+        categories={categories} 
+        transaction={transaction}
+        currency={settings?.currency || "USD"}
+      />
     </DashboardShell>
   )
 }

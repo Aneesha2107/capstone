@@ -3,6 +3,7 @@
 import { sql, type Category, type Transaction } from "@/lib/db"
 import { getSession } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
+import { convertToUSD } from "@/lib/currency"
 
 // Category Actions
 export async function getCategories(): Promise<Category[]> {
@@ -93,9 +94,16 @@ export async function createTransaction(data: {
   const session = await getSession()
   if (!session) return { error: "Not authenticated" }
 
+  // Get user's currency to convert to USD
+  const user = await sql`SELECT currency FROM users WHERE id = ${session.id}`
+  const userCurrency = user[0]?.currency || "USD"
+  
+  // Convert amount to USD for storage
+  const amountInUSD = convertToUSD(data.amount, userCurrency)
+
   await sql`
     INSERT INTO transactions (user_id, category_id, amount, date, is_recurring, notes)
-    VALUES (${session.id}, ${data.categoryId}, ${data.amount}, ${data.date}, ${data.isRecurring}, ${data.notes})
+    VALUES (${session.id}, ${data.categoryId}, ${amountInUSD}, ${data.date}, ${data.isRecurring}, ${data.notes})
   `
   revalidatePath("/transactions")
   revalidatePath("/dashboard")
@@ -115,9 +123,16 @@ export async function updateTransaction(
   const session = await getSession()
   if (!session) return { error: "Not authenticated" }
 
+  // Get user's currency to convert to USD
+  const user = await sql`SELECT currency FROM users WHERE id = ${session.id}`
+  const userCurrency = user[0]?.currency || "USD"
+  
+  // Convert amount to USD for storage
+  const amountInUSD = convertToUSD(data.amount, userCurrency)
+
   await sql`
     UPDATE transactions 
-    SET category_id = ${data.categoryId}, amount = ${data.amount}, 
+    SET category_id = ${data.categoryId}, amount = ${amountInUSD}, 
         date = ${data.date}, is_recurring = ${data.isRecurring}, 
         notes = ${data.notes}, updated_at = NOW()
     WHERE id = ${id} AND user_id = ${session.id}

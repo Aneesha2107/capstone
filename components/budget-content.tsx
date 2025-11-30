@@ -1,3 +1,4 @@
+// ===== FILE 1: components/budget-content.tsx =====
 "use client"
 
 import { useState } from "react"
@@ -27,17 +28,9 @@ import {
 import { createCategory, updateCategoryBudget, deleteCategory } from "@/lib/data-actions"
 import type { Category } from "@/lib/types"
 import { Plus, Pencil, Trash2, Wallet, Check, X, Loader2 } from "lucide-react"
+import { formatCurrency, convertFromUSD, convertToUSD } from "@/lib/currency"
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-export function BudgetContent({ categories }: { categories: Category[] }) {
+export function BudgetContent({ categories, currency = "USD" }: { categories: Category[]; currency?: string }) {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState("")
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -47,9 +40,15 @@ export function BudgetContent({ categories }: { categories: Category[] }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const totalBudget = categories.reduce((sum, cat) => sum + Number(cat.monthly_budget), 0)
+  // Convert categories to display currency
+  const displayCategories = categories.map(cat => ({
+    ...cat,
+    monthly_budget: convertFromUSD(Number(cat.monthly_budget), currency)
+  }))
 
-  const handleEditStart = (category: Category) => {
+  const totalBudget = displayCategories.reduce((sum, cat) => sum + Number(cat.monthly_budget), 0)
+
+  const handleEditStart = (category: typeof displayCategories[0]) => {
     setEditingId(category.id)
     setEditValue(String(category.monthly_budget))
   }
@@ -57,7 +56,9 @@ export function BudgetContent({ categories }: { categories: Category[] }) {
   const handleEditSave = async (categoryId: number) => {
     setIsLoading(true)
     const amount = Number.parseFloat(editValue) || 0
-    await updateCategoryBudget(categoryId, amount)
+    // Convert back to USD for storage
+    const amountInUSD = convertToUSD(amount, currency)
+    await updateCategoryBudget(categoryId, amountInUSD)
     setEditingId(null)
     setIsLoading(false)
   }
@@ -74,7 +75,10 @@ export function BudgetContent({ categories }: { categories: Category[] }) {
     }
     setIsLoading(true)
     setError(null)
-    const result = await createCategory(newCategoryName.trim(), Number.parseFloat(newCategoryBudget) || 0)
+    const budget = Number.parseFloat(newCategoryBudget) || 0
+    // Convert to USD for storage
+    const budgetInUSD = convertToUSD(budget, currency)
+    const result = await createCategory(newCategoryName.trim(), budgetInUSD)
     if (result.error) {
       setError(result.error)
       setIsLoading(false)
@@ -132,7 +136,9 @@ export function BudgetContent({ categories }: { categories: Category[] }) {
               <div className="space-y-2">
                 <Label htmlFor="category-budget">Monthly Budget (optional)</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    {currency === "USD" ? "$" : currency}
+                  </span>
                   <Input
                     id="category-budget"
                     type="number"
@@ -172,14 +178,14 @@ export function BudgetContent({ categories }: { categories: Category[] }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-foreground">{formatCurrency(totalBudget)}</div>
-          <p className="text-sm text-muted-foreground mt-1">Across {categories.length} categories</p>
+          <div className="text-3xl font-bold text-foreground">{formatCurrency(totalBudget, currency)}</div>
+          <p className="text-sm text-muted-foreground mt-1">Across {displayCategories.length} categories</p>
         </CardContent>
       </Card>
 
       {/* Categories Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {categories.map((category) => (
+        {displayCategories.map((category) => (
           <Card key={category.id} className="relative group">
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between">
@@ -203,7 +209,9 @@ export function BudgetContent({ categories }: { categories: Category[] }) {
               {editingId === category.id ? (
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      {currency === "USD" ? "$" : currency}
+                    </span>
                     <Input
                       type="number"
                       value={editValue}
@@ -232,7 +240,7 @@ export function BudgetContent({ categories }: { categories: Category[] }) {
               ) : (
                 <div className="flex items-center justify-between">
                   <span className="text-2xl font-bold text-foreground">
-                    {formatCurrency(Number(category.monthly_budget))}
+                    {formatCurrency(Number(category.monthly_budget), currency)}
                   </span>
                   <Button
                     variant="ghost"

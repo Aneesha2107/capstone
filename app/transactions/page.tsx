@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { getCategories, getTransactionsByMonth } from "@/lib/data-actions"
+import { getUserSettings } from "@/lib/settings-actions"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { TransactionsList } from "@/components/transactions-list"
 
@@ -15,11 +16,20 @@ export default async function TransactionsPage({
   const params = await searchParams
   const currentMonth = params.month || new Date().toISOString().slice(0, 7)
 
-  const [categories, transactions] = await Promise.all([getCategories(), getTransactionsByMonth(currentMonth)])
+  const [categories, transactions, settings] = await Promise.all([
+    getCategories(), 
+    getTransactionsByMonth(currentMonth),
+    getUserSettings()
+  ])
 
   return (
     <DashboardShell user={session}>
-      <TransactionsList transactions={transactions} categories={categories} currentMonth={currentMonth} />
+      <TransactionsList 
+        transactions={transactions} 
+        categories={categories} 
+        currentMonth={currentMonth}
+        currency={settings?.currency || "USD"}
+      />
     </DashboardShell>
   )
 }

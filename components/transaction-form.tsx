@@ -15,19 +15,25 @@ import { createTransaction, updateTransaction } from "@/lib/data-actions"
 import type { Category, Transaction } from "@/lib/types"
 import { Loader2, ArrowLeft, Receipt } from "lucide-react"
 import Link from "next/link"
+import { convertFromUSD, CURRENCY_SYMBOLS } from "@/lib/currency"
 
 export function TransactionForm({
   categories,
   transaction,
+  currency = "USD"
 }: {
   categories: Category[]
   transaction?: Transaction
+  currency?: string
 }) {
   const router = useRouter()
   const isEditing = !!transaction
 
+  // Convert transaction amount from USD to display currency if editing
+  const displayAmount = transaction ? convertFromUSD(Number(transaction.amount), currency) : 0
+
   const [categoryId, setCategoryId] = useState(transaction?.category_id?.toString() || "")
-  const [amount, setAmount] = useState(transaction?.amount?.toString() || "")
+  const [amount, setAmount] = useState(displayAmount > 0 ? displayAmount.toString() : "")
   const [date, setDate] = useState(
     transaction?.date ? new Date(transaction.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
   )
@@ -35,6 +41,8 @@ export function TransactionForm({
   const [isRecurring, setIsRecurring] = useState(transaction?.is_recurring || false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const currencySymbol = CURRENCY_SYMBOLS[currency] || "$"
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,7 +62,7 @@ export function TransactionForm({
 
     const data = {
       categoryId: Number.parseInt(categoryId),
-      amount: Number.parseFloat(amount),
+      amount: Number.parseFloat(amount), // Amount will be converted to USD in the action
       date,
       isRecurring,
       notes,
@@ -120,9 +128,11 @@ export function TransactionForm({
 
             {/* Amount */}
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount</Label>
+              <Label htmlFor="amount">Amount ({currency})</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">
+                  {currencySymbol}
+                </span>
                 <Input
                   id="amount"
                   type="number"
